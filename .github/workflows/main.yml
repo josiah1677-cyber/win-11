@@ -1,4 +1,4 @@
-name: Remote Access macOS Runner
+name: Headless macOS Remote Desktop
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Connect to Tailscale Network
+      # 1. Connect to Tailscale Network using your existing Auth Key
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -20,47 +20,41 @@ jobs:
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Create a fresh User and configure the Apple Screen Sharing engine
-      - name: Configure Clean VNC Profile Access
+      # 2. Build independent virtual video frame buffers & x11vnc servers
+      - name: Build Headless Video Frame Server
         run: |
-          # Define a fixed 8-character password for structural compatibility
+          echo "Updating Homebrew dependencies..."
+          brew update --preinstall
+          
+          echo "Installing independent display servers..."
+          brew install x11vnc xdotool
+          
+          # Assign custom fixed password token for security compliance
           PASSWORD="MacVNC12"
-          
-          echo "Creating an isolated desktop user for your connection..."
-          # Creates a secondary clean administrator profile 
-          sudo sysadminctl -addUser vncuser -fullName "VNC User" -password "$PASSWORD" -admin
-          
-          echo "Activating macOS Screen Sharing Engine..."
-          KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
-          
-          # Force remote configurations to authorize the new account
-          sudo $KICKSTART -configure -allowAccessFor -allUsers -privs -all
-          sudo $KICKSTART -configure -clientopts -setvnclegacy -vnclegacy yes
-          sudo $KICKSTART -configure -clientopts -setvncpw -vncpw "$PASSWORD"
-          
-          # Fire up system service agents
-          sudo $KICKSTART -activate
-          sudo $KICKSTART -restart -agent -console
+          mkdir -p ~/.vnc
+          x11vnc -storepasswd "$PASSWORD" ~/.vnc/passwd
           
           TS_IP=$(tailscale ip -4)
           echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
           echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
 
-      # 3. Print Connection Summary and Keep Alive Loop
+      # 3. Initialize background pipeline listeners & retain the active task 
       - name: Maintain Connection
         run: |
           echo ""
-          echo "=== REMOTE DESKTOP / VNC ACCESS ==="
-          echo "Address:  ${{ env.TAILSCALE_IP }}"
-          echo "Username: vncuser"
+          echo "=== PORTABLE MAC OS GRAPHICS INTERFACE ==="
+          echo "Address:  ${{ env.TAILSCALE_IP }}:5900"
           echo "Password: ${{ env.PASSWORD }}"
-          echo "==================================="
+          echo "=========================================="
           echo ""
-          echo "Connecting from a Mac? Press Cmd+K in Finder and enter: vnc://${{ env.TAILSCALE_IP }}"
-          echo "Connecting from Windows? Use a VNC client (like TightVNC) and connect to: ${{ env.TAILSCALE_IP }}"
+          echo "Connecting from Mac? Launch Terminal, run: open vnc://${{ env.TAILSCALE_IP }}:5900"
+          echo "Connecting from Windows? Connect using RealVNC Viewer to: ${{ env.TAILSCALE_IP }}:5900"
           echo ""
           
+          # Launch background system display stream maps 
+          x11vnc -rfbauth ~/.vnc/passwd -rfbport 5900 -shared -forever -bg
+          
           while true; do
-            echo "[$(date)] Secure VNC Session Open - Cancel workflow run in GitHub to close."
+            echo "[$(date)] Custom macOS Display Listening on Port 5900..."
             sleep 300
           done
