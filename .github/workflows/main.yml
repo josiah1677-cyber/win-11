@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  secure-rdp:
+  secure-vnc:
     runs-on: macos-latest
     timeout-minutes: 3600
 
@@ -12,19 +12,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Official Tailscale Setup Action using Client Secret
+      # 1. Connect to Tailscale using your Auth Key
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Configure a local user password on macOS for remote authentication
+      # 2. Configure macOS user password for remote authentication
       - name: Configure macOS Screen Sharing Access
         run: |
           # Define a secure password for the 'runner' account
-          # You can change "MySecurePassword123" to any password you prefer
           PASSWORD="MySecurePassword123"
           
           echo "Setting up password for the runner account..."
