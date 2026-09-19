@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Connect to Tailscale
+      # 1. Connect to Tailscale Network
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -20,13 +20,11 @@ jobs:
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Configure macOS user password for remote authentication using sysadminctl
-      - name: Configure macOS Screen Sharing Access
+      # 2. Configure Local User Credentials
+      - name: Configure macOS User Password
         run: |
           PASSWORD="MySecurePassword123"
           echo "Setting up password for the runner account..."
-          
-          # Use sysadminctl to update the runner password directly as root
           sudo sysadminctl -deleteUserPassword runner
           sudo sysadminctl -resetUserPassword runner -password "$PASSWORD"
           
@@ -34,7 +32,24 @@ jobs:
           echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
           echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
 
-      # 3. Print Connection Summary and Keep Alive Loop
+      # 3. Force-Enable Apple Remote Management & VNC Server
+      - name: Turn On VNC Server Service
+        run: |
+          echo "Activating macOS Screen Sharing Engine..."
+          KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
+          
+          # Allow control access and configure general permissions
+          sudo $KICKSTART -configure -allowAccessFor -allUsers -privs -all
+          
+          # Enable legacy third-party VNC client support and hardcode the VNC auth password
+          sudo $KICKSTART -configure -clientopts -setvnclegacy -vnclegacy yes
+          sudo $KICKSTART -configure -clientopts -setvncpw -vncpw "${{ env.PASSWORD }}"
+          
+          # Force start the network listener agent
+          sudo $KICKSTART -activate
+          sudo $KICKSTART -restart -agent -console
+
+      # 4. Print Connection Summary and Keep Alive Loop
       - name: Maintain Connection
         run: |
           echo ""
