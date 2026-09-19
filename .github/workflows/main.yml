@@ -12,22 +12,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Connect to Tailscale using your Auth Key
+      # 1. Connect to Tailscale
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Configure macOS user password for remote authentication
+      # 2. Configure macOS user password for remote authentication using sysadminctl
       - name: Configure macOS Screen Sharing Access
         run: |
-          # Define a secure password for the 'runner' account
           PASSWORD="MySecurePassword123"
-          
           echo "Setting up password for the runner account..."
-          sudo dscl . -passwd /Users/runner "$PASSWORD"
           
-          # Fetch the Tailscale assigned IPv4 address
+          # Use sysadminctl to update the runner password directly as root
+          sudo sysadminctl -deleteUserPassword runner
+          sudo sysadminctl -resetUserPassword runner -password "$PASSWORD"
+          
           TS_IP=$(tailscale ip -4)
           echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
           echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
