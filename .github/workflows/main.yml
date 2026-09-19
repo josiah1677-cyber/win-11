@@ -20,25 +20,25 @@ jobs:
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Configure VNC Server with 8-character password limits
-      - name: Turn On VNC Server Service
+      # 2. Create a fresh User and configure the Apple Screen Sharing engine
+      - name: Configure Clean VNC Profile Access
         run: |
-          # CRITICAL: macOS VNC legacy engine truncates passwords strictly to 8 chars max.
+          # Define a fixed 8-character password for structural compatibility
           PASSWORD="MacVNC12"
           
-          echo "Setting up system credentials for runner user..."
-          sudo sysadminctl -deleteUserPassword runner
-          sudo sysadminctl -resetUserPassword runner -password "$PASSWORD"
+          echo "Creating an isolated desktop user for your connection..."
+          # Creates a secondary clean administrator profile 
+          sudo sysadminctl -addUser vncuser -fullName "VNC User" -password "$PASSWORD" -admin
           
           echo "Activating macOS Screen Sharing Engine..."
           KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
           
-          # Configure access, privileges, legacy compatibility, and the VNC password
+          # Force remote configurations to authorize the new account
           sudo $KICKSTART -configure -allowAccessFor -allUsers -privs -all
           sudo $KICKSTART -configure -clientopts -setvnclegacy -vnclegacy yes
           sudo $KICKSTART -configure -clientopts -setvncpw -vncpw "$PASSWORD"
           
-          # Force activate and reload process components
+          # Fire up system service agents
           sudo $KICKSTART -activate
           sudo $KICKSTART -restart -agent -console
           
@@ -52,7 +52,7 @@ jobs:
           echo ""
           echo "=== REMOTE DESKTOP / VNC ACCESS ==="
           echo "Address:  ${{ env.TAILSCALE_IP }}"
-          echo "Username: runner"
+          echo "Username: vncuser"
           echo "Password: ${{ env.PASSWORD }}"
           echo "==================================="
           echo ""
@@ -61,6 +61,6 @@ jobs:
           echo ""
           
           while true; do
-            echo "[$(date)] VNC Connection Active - Cancel workflow run in GitHub to terminate."
+            echo "[$(date)] Secure VNC Session Open - Cancel workflow run in GitHub to close."
             sleep 300
           done
