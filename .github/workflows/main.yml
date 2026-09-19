@@ -1,4 +1,4 @@
-name: Headless macOS Remote Desktop
+name: Remote Access macOS Runner
 
 on:
   workflow_dispatch:
@@ -20,41 +20,24 @@ jobs:
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Build independent virtual video frame buffers & x11vnc servers
-      - name: Build Headless Video Frame Server
-        run: |
-          echo "Updating Homebrew dependencies..."
-          brew update --preinstall
-          
-          echo "Installing independent display servers..."
-          brew install x11vnc xdotool
-          
-          # Assign custom fixed password token for security compliance
-          PASSWORD="MacVNC12"
-          mkdir -p ~/.vnc
-          x11vnc -storepasswd "$PASSWORD" ~/.vnc/passwd
-          
-          TS_IP=$(tailscale ip -4)
-          echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
-          echo "PASSWORD=$PASSWORD" >> $GITHUB_ENV
-
-      # 3. Initialize background pipeline listeners & retain the active task 
+      # 2. Extract Network Interface Mapping and Keep Active Loop
       - name: Maintain Connection
         run: |
+          # Fetch the active Tailscale IP mapping
+          TS_IP=$(tailscale ip -4)
+          
           echo ""
-          echo "=== PORTABLE MAC OS GRAPHICS INTERFACE ==="
-          echo "Address:  ${{ env.TAILSCALE_IP }}:5900"
-          echo "Password: ${{ env.PASSWORD }}"
+          echo "=== PORTABLE MAC OS TERMINAL INTERFACE ==="
+          echo "Address:  $TS_IP"
+          echo "Username: runner"
           echo "=========================================="
           echo ""
-          echo "Connecting from Mac? Launch Terminal, run: open vnc://${{ env.TAILSCALE_IP }}:5900"
-          echo "Connecting from Windows? Connect using RealVNC Viewer to: ${{ env.TAILSCALE_IP }}:5900"
+          echo "To interact with this macOS environment securely over your Tailscale Mesh network:"
+          echo "Open your local terminal and connect via SSH directly:"
+          echo "ssh runner@$TS_IP"
           echo ""
           
-          # Launch background system display stream maps 
-          x11vnc -rfbauth ~/.vnc/passwd -rfbport 5900 -shared -forever -bg
-          
           while true; do
-            echo "[$(date)] Custom macOS Display Listening on Port 5900..."
+            echo "[$(date)] Remote secure shell mapping active over Tailscale IP..."
             sleep 300
           done
