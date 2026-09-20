@@ -1,18 +1,18 @@
-name: Remote Access macOS Runner
+name: High-Performance Windows RDP
 
 on:
   workflow_dispatch:
 
 jobs:
-  secure-vnc:
-    runs-on: macos-latest
+  secure-rdp:
+    runs-on: windows-latest
     timeout-minutes: 3600
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Connect to Tailscale Network using your existing Auth Key
+      # 1. Connect to your private Tailscale network
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -20,24 +20,42 @@ jobs:
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
-      # 2. Extract Network Interface Mapping and Keep Active Loop
-      - name: Maintain Connection
+      # 2. Configure Local User Credentials & Enable Performance Windows RDP
+      - name: Optimize System and Enable RDP
         run: |
-          # Fetch the active Tailscale IP mapping
-          TS_IP=$(tailscale ip -4)
+          # Set a secure password for the standard administrative account
+          $Password = ConvertTo-SecureString "WinRDP2026!" -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $Password
           
-          echo ""
-          echo "=== PORTABLE MAC OS TERMINAL INTERFACE ==="
-          echo "Address:  $TS_IP"
-          echo "Username: runner"
-          echo "=========================================="
-          echo ""
-          echo "To interact with this macOS environment securely over your Tailscale Mesh network:"
-          echo "Open your local terminal and connect via SSH directly:"
-          echo "ssh runner@$TS_IP"
-          echo ""
+          echo "Activating Windows Remote Desktop Services..."
+          # Force enable RDP registry flags
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           
-          while true; do
-            echo "[$(date)] Remote secure shell mapping active over Tailscale IP..."
-            sleep 300
-          done
+          # Performance Tweaks: Disable wallpaper/visual elements inside the RDP engine to save bandwidth
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "MinEncryptionLevel" -Value 1
+          
+          # Fetch the Tailscale assigned IPv4 address
+          $tsIp = (tailscale ip -4)
+          echo "TAILSCALE_IP=$tsIp" >> $env:GITHUB_ENV
+
+      # 3. Output Connection Instructions & Keep Alive Loop
+      - name: Maintain Active Connection
+        run: |
+          Write-Host ""
+          Write-Host "============================================="
+          Write-Host "         WINDOWS RDP SERVER READY            "
+          Write-Host "============================================="
+          Write-Host "IP Address:   ${env:TAILSCALE_IP}"
+          Write-Host "Username:     runneradmin"
+          Write-Host "Password:     WinRDP2026!"
+          Write-Host "============================================="
+          Write-Host ""
+          Write-Host "Connecting from a Mac? Use the official Microsoft 'Windows App' from the App Store."
+          Write-Host "Connecting from a Windows PC? Use the built-in 'Remote Desktop Connection' tool."
+          Write-Host ""
+          
+          while ($true) {
+              Write-Host "[$(Get-Date)] RDP Session Active. To terminate, cancel this workflow run in GitHub."
+              Start-Sleep -Seconds 300
+          }
